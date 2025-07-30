@@ -92,6 +92,25 @@ function handleLoginPage(req, res) {
 </head>
 <body>
   <div class="container">
+<body>
+  <div class="container">
+    <h1>Site de Bios</h1>
+    ${username ? `<p>Bonjour ${username} | <a href="/dashboard">Dashboard</a> | <a href="/customise">Customise</a> | <a href="/logout">Déconnexion</a></p>` : `<p><a href="/login">Connexion</a> | <a href="/register">Créer un compte</a></p>`}
+  </div>
+</body></html>`;
+  send(res, 200, html);
+}
+
+function handleLoginPage(req, res) {
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Connexion</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
     <h1>Connexion</h1>
     <form method="POST" action="/login">
       <input name="username" placeholder="Nom d'utilisateur" required>
@@ -248,6 +267,9 @@ function handleCustomisePage(req, res, username) {
     <h1>Personnaliser</h1>
     ${style.banner ? `<div class="banner" style="background-image:url('${style.banner}')"></div>` : ''}
     <form method="POST" action="/customise" enctype="multipart/form-data">
+    ${style.banner ? `<img src="${style.banner}" style="max-width:100%;">` : ''}
+    <form method="POST" action="/customise" enctype="multipart/form-data">
+    <form method="POST" action="/customise">
       <label>Couleur de fond</label>
       <input type="color" name="bgColor" value="${style.bgColor}">
       <label>Couleur du texte</label>
@@ -287,6 +309,14 @@ function handleCustomiseUpdate(req, res, username) {
       userStyle.banner = '/uploads/' + fileName;
     }
     db.users[username].style = userStyle;
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', () => {
+    const data = qs.parse(body);
+    db.users[username].style = {
+      bgColor: data.bgColor || '#000000',
+      textColor: data.textColor || '#f0f0f0'
+    };
     saveDb();
     res.writeHead(302, { Location: '/customise' });
     res.end();
@@ -311,6 +341,11 @@ function handleUserPage(req, res, username) {
 <body>
   <div class="container">
     ${style.banner ? `<div class="banner" style="background-image:url('${style.banner}')"></div>` : ''}
+<style>body{background:${style.bgColor};color:${style.textColor};}</style>
+</head>
+<body>
+  <div class="container">
+    ${style.banner ? `<img src="${style.banner}" style="max-width:100%;">` : ''}
     <h1>${username}</h1>
     <p>${user.bio}</p>
     <p><a href="/">Accueil</a></p>
