@@ -6,6 +6,7 @@ Ce projet propose une petite application sans dépendances externes permettant :
 - la connexion/déconnexion
 - la modification d'une page de biographie
 - la personnalisation des couleurs de sa page
+- l'ajout d'une bannière en téléversant une image
 
 ## Utilisation
 
@@ -17,3 +18,4 @@ Ce projet propose une petite application sans dépendances externes permettant :
 Toutes les données sont enregistrées dans `db.json` à la racine du projet.
 
 Les pages principales sont : /login, /register, /dashboard, /customise et /<nom_utilisateur>
+La page `/customise` permet maintenant de choisir les couleurs et de téléverser une bannière qui s'affichera en haut de votre bio.
