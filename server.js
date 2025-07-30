@@ -3,6 +3,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { URL } = require('url');
 const qs = require('querystring');
+const pathModule = require('path');
 
 const PORT = 3000;
 const DB_FILE = 'db.json';
@@ -45,23 +46,62 @@ function parseCookies(cookieHeader) {
 function handleHome(req, res, username) {
   const html = `<!DOCTYPE html>
 <html lang="fr">
-<head><meta charset="UTF-8"><title>Site de Bios</title></head>
+<head>
+<meta charset="UTF-8">
+<title>Site de Bios</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
 <body>
-<h1>Site de Bios</h1>
-${username ? `<p>Bonjour ${username} | <a href="/logout">Déconnexion</a> | <a href="/dashboard">Gérer ma bio</a></p>` : `
-<h2>Connexion</h2>
-<form method="POST" action="/login">
-<input name="username" placeholder="Nom d'utilisateur"><br>
-<input type="password" name="password" placeholder="Mot de passe"><br>
-<button type="submit">Se connecter</button>
-</form>
-<h2>Inscription</h2>
-<form method="POST" action="/register">
-<input name="username" placeholder="Nom d'utilisateur"><br>
-<input type="password" name="password" placeholder="Mot de passe"><br>
-<button type="submit">Créer un compte</button>
-</form>
-`}
+  <div class="container">
+    <h1>Site de Bios</h1>
+    ${username ? `<p>Bonjour ${username} | <a href="/dashboard">Dashboard</a> | <a href="/customise">Customise</a> | <a href="/logout">Déconnexion</a></p>` : `<p><a href="/login">Connexion</a> | <a href="/register">Créer un compte</a></p>`}
+  </div>
+</body></html>`;
+  send(res, 200, html);
+}
+
+function handleLoginPage(req, res) {
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Connexion</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Connexion</h1>
+    <form method="POST" action="/login">
+      <input name="username" placeholder="Nom d'utilisateur" required>
+      <input type="password" name="password" placeholder="Mot de passe" required>
+      <div class="actions"><button type="submit">Se connecter</button></div>
+    </form>
+    <p><a href="/register">Créer un compte</a></p>
+    <p><a href="/">Accueil</a></p>
+  </div>
+</body></html>`;
+  send(res, 200, html);
+}
+
+function handleRegisterPage(req, res) {
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Inscription</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Inscription</h1>
+    <form method="POST" action="/register">
+      <input name="username" placeholder="Nom d'utilisateur" required>
+      <input type="password" name="password" placeholder="Mot de passe" required>
+      <div class="actions"><button type="submit">Créer un compte</button></div>
+    </form>
+    <p><a href="/login">Connexion</a></p>
+    <p><a href="/">Accueil</a></p>
+  </div>
 </body></html>`;
   send(res, 200, html);
 }
@@ -85,7 +125,11 @@ function handleRegister(req, res) {
       return;
     }
     const hash = crypto.createHash('sha256').update(data.password).digest('hex');
-    db.users[data.username] = { password: hash, bio: 'Nouvelle bio' };
+    db.users[data.username] = {
+      password: hash,
+      bio: 'Nouvelle bio',
+      style: { bgColor: '#000000', textColor: '#f0f0f0' }
+    };
     db.ipToUser[ip] = data.username;
     saveDb();
     res.writeHead(302, { Location: '/' });
@@ -137,14 +181,20 @@ function handleDashboard(req, res, username) {
   const bio = db.users[username].bio || '';
   const html = `<!DOCTYPE html>
 <html lang="fr">
-<head><meta charset="UTF-8"><title>Mon compte</title></head>
+<head>
+<meta charset="UTF-8">
+<title>Mon compte</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
 <body>
-<h1>Mon Compte</h1>
-<p><a href="/">Accueil</a> | <a href="/logout">Déconnexion</a></p>
-<form method="POST" action="/update">
-<textarea name="bio" rows="5" cols="40">${bio}</textarea><br>
-<button type="submit">Mettre à jour</button>
-</form>
+  <div class="container">
+    <h1>Mon Compte</h1>
+    <p><a href="/">Accueil</a> | <a href="/customise">Personnaliser</a> | <a href="/logout">Déconnexion</a></p>
+    <form method="POST" action="/update">
+      <textarea name="bio" rows="5" cols="40">${bio}</textarea>
+      <div class="actions"><button type="submit">Mettre à jour</button></div>
+    </form>
+  </div>
 </body></html>`;
   send(res, 200, html);
 }
@@ -161,19 +211,68 @@ function handleUpdate(req, res, username) {
   });
 }
 
+function handleCustomisePage(req, res, username) {
+  const user = db.users[username];
+  const style = user.style || { bgColor: '#000000', textColor: '#f0f0f0' };
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Customise</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Personnaliser</h1>
+    <form method="POST" action="/customise">
+      <label>Couleur de fond</label>
+      <input type="color" name="bgColor" value="${style.bgColor}">
+      <label>Couleur du texte</label>
+      <input type="color" name="textColor" value="${style.textColor}">
+      <div class="actions"><button type="submit">Enregistrer</button></div>
+    </form>
+    <p><a href="/dashboard">Retour</a></p>
+  </div>
+</body></html>`;
+  send(res, 200, html);
+}
+
+function handleCustomiseUpdate(req, res, username) {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', () => {
+    const data = qs.parse(body);
+    db.users[username].style = {
+      bgColor: data.bgColor || '#000000',
+      textColor: data.textColor || '#f0f0f0'
+    };
+    saveDb();
+    res.writeHead(302, { Location: '/customise' });
+    res.end();
+  });
+}
+
 function handleUserPage(req, res, username) {
   const user = db.users[username];
   if (!user) {
     send(res, 404, 'Page non trouvée');
     return;
   }
+  const style = user.style || { bgColor: '#000000', textColor: '#f0f0f0' };
   const html = `<!DOCTYPE html>
 <html lang="fr">
-<head><meta charset="UTF-8"><title>${username}</title></head>
+<head>
+<meta charset="UTF-8">
+<title>${username}</title>
+<link rel="stylesheet" href="/styles.css">
+<style>body{background:${style.bgColor};color:${style.textColor};}</style>
+</head>
 <body>
-<h1>${username}</h1>
-<p>${user.bio}</p>
-<p><a href="/">Accueil</a></p>
+  <div class="container">
+    <h1>${username}</h1>
+    <p>${user.bio}</p>
+    <p><a href="/">Accueil</a></p>
+  </div>
 </body></html>`;
   send(res, 200, html);
 }
@@ -187,6 +286,18 @@ function onRequest(req, res) {
 
   if (path === '/' && req.method === 'GET') {
     handleHome(req, res, username);
+  } else if (path === '/styles.css' && req.method === 'GET') {
+    fs.readFile(pathModule.join(__dirname, 'styles.css'), (err, data) => {
+      if (err) {
+        send(res, 404, 'Not found');
+      } else {
+        send(res, 200, data, 'text/css');
+      }
+    });
+  } else if (path === '/login' && req.method === 'GET') {
+    handleLoginPage(req, res);
+  } else if (path === '/register' && req.method === 'GET') {
+    handleRegisterPage(req, res);
   } else if (path === '/register' && req.method === 'POST') {
     handleRegister(req, res);
   } else if (path === '/login' && req.method === 'POST') {
@@ -196,6 +307,12 @@ function onRequest(req, res) {
   } else if (path === '/dashboard') {
     const user = requireLogin(req, res, sessionId);
     if (user) handleDashboard(req, res, user);
+  } else if (path === '/customise' && req.method === 'GET') {
+    const user = requireLogin(req, res, sessionId);
+    if (user) handleCustomisePage(req, res, user);
+  } else if (path === '/customise' && req.method === 'POST') {
+    const user = requireLogin(req, res, sessionId);
+    if (user) handleCustomiseUpdate(req, res, user);
   } else if (path === '/update' && req.method === 'POST') {
     const user = requireLogin(req, res, sessionId);
     if (user) handleUpdate(req, res, user);
