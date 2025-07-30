@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const { URL } = require('url');
 const qs = require('querystring');
 const pathModule = require('path');
-
 function parseMultipart(body, boundary) {
   const result = {};
   const parts = body.split('--' + boundary);
@@ -248,6 +247,7 @@ function handleCustomisePage(req, res, username) {
     <h1>Personnaliser</h1>
     ${style.banner ? `<img src="${style.banner}" style="max-width:100%;">` : ''}
     <form method="POST" action="/customise" enctype="multipart/form-data">
+    <form method="POST" action="/customise">
       <label>Couleur de fond</label>
       <input type="color" name="bgColor" value="${style.bgColor}">
       <label>Couleur du texte</label>
@@ -287,6 +287,15 @@ function handleCustomiseUpdate(req, res, username) {
       userStyle.banner = '/uploads/' + fileName;
     }
     db.users[username].style = userStyle;
+=======
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', () => {
+    const data = qs.parse(body);
+    db.users[username].style = {
+      bgColor: data.bgColor || '#000000',
+      textColor: data.textColor || '#f0f0f0'
+    };
     saveDb();
     res.writeHead(302, { Location: '/customise' });
     res.end();
