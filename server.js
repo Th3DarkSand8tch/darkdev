@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { URL } = require('url');
 const qs = require('querystring');
 const pathModule = require('path');
+
 function parseMultipart(body, boundary) {
   const result = {};
   const parts = body.split('--' + boundary);
@@ -72,6 +73,25 @@ function handleHome(req, res, username) {
 <title>Site de Bios</title>
 <link rel="stylesheet" href="/styles.css">
 </head>
+<body>
+  <div class="container">
+    <h1>Site de Bios</h1>
+    ${username ? `<p>Bonjour ${username} | <a href="/dashboard">Dashboard</a> | <a href="/customise">Customise</a> | <a href="/logout">Déconnexion</a></p>` : `<p><a href="/login">Connexion</a> | <a href="/register">Créer un compte</a></p>`}
+  </div>
+</body></html>`;
+  send(res, 200, html);
+}
+
+function handleLoginPage(req, res) {
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Connexion</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
 <body>
   <div class="container">
     <h1>Site de Bios</h1>
@@ -245,6 +265,8 @@ function handleCustomisePage(req, res, username) {
 <body>
   <div class="container">
     <h1>Personnaliser</h1>
+    ${style.banner ? `<div class="banner" style="background-image:url('${style.banner}')"></div>` : ''}
+    <form method="POST" action="/customise" enctype="multipart/form-data">
     ${style.banner ? `<img src="${style.banner}" style="max-width:100%;">` : ''}
     <form method="POST" action="/customise" enctype="multipart/form-data">
     <form method="POST" action="/customise">
@@ -287,7 +309,6 @@ function handleCustomiseUpdate(req, res, username) {
       userStyle.banner = '/uploads/' + fileName;
     }
     db.users[username].style = userStyle;
-=======
   let body = '';
   req.on('data', chunk => body += chunk);
   req.on('end', () => {
@@ -315,6 +336,11 @@ function handleUserPage(req, res, username) {
 <meta charset="UTF-8">
 <title>${username}</title>
 <link rel="stylesheet" href="/styles.css">
+<style>body{background:${style.bgColor};color:${style.textColor};${style.banner ? `background-image:url('${style.banner}');background-size:cover;background-position:center;` : ''}}</style>
+</head>
+<body>
+  <div class="container">
+    ${style.banner ? `<div class="banner" style="background-image:url('${style.banner}')"></div>` : ''}
 <style>body{background:${style.bgColor};color:${style.textColor};}</style>
 </head>
 <body>
