@@ -5,6 +5,28 @@ const { URL } = require('url');
 const qs = require('querystring');
 const pathModule = require('path');
 
+function parseMultipart(body, boundary) {
+  const result = {};
+  const parts = body.split('--' + boundary);
+  parts.forEach(part => {
+    if (!part || part === '--\r\n') return;
+    const nameMatch = part.match(/name="([^"]+)"/);
+    if (!nameMatch) return;
+    const name = nameMatch[1];
+    const filenameMatch = part.match(/filename="([^"]*)"/);
+    const dataStart = part.indexOf('\r\n\r\n');
+    if (dataStart === -1) return;
+    let value = part.slice(dataStart + 4);
+    value = value.replace(/\r\n$/, '');
+    if (filenameMatch && filenameMatch[1]) {
+      result[name] = { filename: filenameMatch[1], content: value };
+    } else {
+      result[name] = value;
+    }
+  });
+  return result;
+}
+
 const PORT = 3000;
 const DB_FILE = 'db.json';
 
@@ -224,11 +246,14 @@ function handleCustomisePage(req, res, username) {
 <body>
   <div class="container">
     <h1>Personnaliser</h1>
-    <form method="POST" action="/customise">
+    ${style.banner ? `<img src="${style.banner}" style="max-width:100%;">` : ''}
+    <form method="POST" action="/customise" enctype="multipart/form-data">
       <label>Couleur de fond</label>
       <input type="color" name="bgColor" value="${style.bgColor}">
       <label>Couleur du texte</label>
       <input type="color" name="textColor" value="${style.textColor}">
+      <label>Bannière</label>
+      <input type="file" name="banner">
       <div class="actions"><button type="submit">Enregistrer</button></div>
     </form>
     <p><a href="/dashboard">Retour</a></p>
@@ -238,14 +263,30 @@ function handleCustomisePage(req, res, username) {
 }
 
 function handleCustomiseUpdate(req, res, username) {
-  let body = '';
-  req.on('data', chunk => body += chunk);
+  const chunks = [];
+  req.on('data', chunk => chunks.push(chunk));
   req.on('end', () => {
-    const data = qs.parse(body);
-    db.users[username].style = {
-      bgColor: data.bgColor || '#000000',
-      textColor: data.textColor || '#f0f0f0'
-    };
+    const contentType = req.headers['content-type'] || '';
+    let data = {};
+    if (contentType.startsWith('multipart/form-data')) {
+      const boundary = contentType.split('boundary=')[1];
+      const body = Buffer.concat(chunks).toString('binary');
+      data = parseMultipart(body, boundary);
+    } else {
+      const body = Buffer.concat(chunks).toString();
+      data = qs.parse(body);
+    }
+    const userStyle = db.users[username].style || { bgColor: '#000000', textColor: '#f0f0f0' };
+    userStyle.bgColor = data.bgColor || userStyle.bgColor || '#000000';
+    userStyle.textColor = data.textColor || userStyle.textColor || '#f0f0f0';
+    if (data.banner && data.banner.filename) {
+      const ext = pathModule.extname(data.banner.filename) || '';
+      const fileName = username + '_banner' + ext;
+      const filePath = pathModule.join(__dirname, 'uploads', fileName);
+      fs.writeFileSync(filePath, data.banner.content, 'binary');
+      userStyle.banner = '/uploads/' + fileName;
+    }
+    db.users[username].style = userStyle;
     saveDb();
     res.writeHead(302, { Location: '/customise' });
     res.end();
@@ -269,6 +310,7 @@ function handleUserPage(req, res, username) {
 </head>
 <body>
   <div class="container">
+    ${style.banner ? `<img src="${style.banner}" style="max-width:100%;">` : ''}
     <h1>${username}</h1>
     <p>${user.bio}</p>
     <p><a href="/">Accueil</a></p>
@@ -292,6 +334,16 @@ function onRequest(req, res) {
         send(res, 404, 'Not found');
       } else {
         send(res, 200, data, 'text/css');
+      }
+    });
+  } else if (path.startsWith('/uploads/') && req.method === 'GET') {
+    const filePath = pathModule.join(__dirname, path.replace(/^\//, ''));
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        send(res, 404, 'Not found');
+      } else {
+        const type = 'image/' + pathModule.extname(filePath).slice(1);
+        send(res, 200, data, type);
       }
     });
   } else if (path === '/login' && req.method === 'GET') {
@@ -324,6 +376,9 @@ function onRequest(req, res) {
 }
 
 loadDb();
+if (!fs.existsSync(pathModule.join(__dirname, 'uploads'))) {
+  fs.mkdirSync(pathModule.join(__dirname, 'uploads'));
+}
 http.createServer(onRequest).listen(PORT, () => {
   console.log('Server running on http://localhost:' + PORT);
 });
